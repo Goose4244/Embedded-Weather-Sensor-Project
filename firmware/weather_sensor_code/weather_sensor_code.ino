@@ -1,9 +1,14 @@
 #include <Adafruit_BME280.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
 
 #define GPIO_IN (*(volatile uint32_t *)0x3F40403C)
 #define GPIO_OUT_W1TS (*(volatile uint32_t *)0x3F404008)
 #define GPIO_OUT_W1TC (*(volatile uint32_t *)0x3F40400C)
 #define GPIO_OUT (*(volatile uint32_t *)0x3F404004)
+
+#define WIFI_SSID "HMH_Guest"
+#define API_URL "http://10.80.122.204:8000/readings/"
 
 Adafruit_BME280 bme;
 
@@ -11,10 +16,12 @@ Adafruit_BME280 bme;
 bool last_btn_status = true;
 bool current_btn_status;
 
+//timer for how long led's been on
+unsigned long ms_since_led_on = 0;
+
 //bool for whether or not sensor was found at startup
 bool bme_found = false;
 
-unsigned long ms_since_led_on = 0;
 
 struct Reading {
   float temp_c;
@@ -23,6 +30,25 @@ struct Reading {
 };
 
 char reading_json[128];
+
+static void connect_to_wifi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID);
+  unsigned long ms_since_wifi_began = millis();
+
+  while (WiFi.status() != WL_CONNECTED && (millis() - ms_since_wifi_began) < 15000) {
+    Serial.println("...");
+    delay(500);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    IPAddress ip = WiFi.localIP();
+    Serial.printf("Connected to IP: %u.%u.%u.%u\n", ip[0], ip[1], ip[2], ip[3]);
+  }
+  else {
+    Serial.println("WiFi Connection Failed...");
+  }
+}
 
 static inline bool check_btn_status() {
   //true is not pressed, false is pressed
@@ -58,6 +84,17 @@ void read_sensor(struct Reading *reading) {
   reading->pressure_hpa = (bme.readPressure() / 100.0f);
 }
 
+void send_reading(const char *reading_json) {
+  HTTPClient http;
+  http.begin(API_URL);
+  http.addHeader("Content-Type", "application/json");
+
+  int code = http.POST(reading_json);
+  Serial.println(code);
+  
+  http.end();
+}
+
 static void btn_press(void){
   current_btn_status = check_btn_status();
 
@@ -67,6 +104,7 @@ static void btn_press(void){
     read_sensor(&reading);
     snprintf(reading_json, 128, "{\"device_id\": 1, \"temp_c\": %.2f, \"humidity_pct\": %.2f, \"pressure_hpa\" : %.2f}", reading.temp_c, reading.humidity_pct, reading.pressure_hpa);
     Serial.println(reading_json);
+    send_reading(reading_json);
   }
 
   last_btn_status = current_btn_status;
@@ -90,6 +128,8 @@ void setup() {
     delay(10);
     }
   }
+
+  connect_to_wifi();
 
 }
 
