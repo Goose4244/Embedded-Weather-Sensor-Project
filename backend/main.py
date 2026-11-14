@@ -7,8 +7,16 @@ from sqlalchemy import text, select
 from sqlalchemy.orm import Session
 from database import get_session
 from models import Device, SensorReading
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["GET"],
+    allow_headers=["Content-Type"],
+)
 
 class ReadingIn(BaseModel):
     device_id: int
@@ -32,7 +40,6 @@ def post_item(session: Annotated[Session, Depends(get_session)], readings: Readi
     device = session.get(Device, readings.device_id)
     if device is None:
         raise HTTPException(status_code=404, detail=f"Device with id {readings.device_id} not found")
-
 
     sensor_reading_row = SensorReading(**readings.model_dump())
     session.add(sensor_reading_row)
