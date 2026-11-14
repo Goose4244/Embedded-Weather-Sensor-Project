@@ -92,6 +92,9 @@ void send_reading(const char *reading_json) {
   int code = http.POST(reading_json);
   Serial.println(code);
   
+  String api_response = http.getString();
+  Serial.println(api_response);
+
   http.end();
 }
 
