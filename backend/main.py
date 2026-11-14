@@ -1,24 +1,24 @@
-from fastapi import FastAPI, Query
-from pydantic import BaseModel
-from pydantic import ConfigDict
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel,ConfigDict, Field
 from datetime import datetime
 from typing import Annotated
 from fastapi import Depends
 from sqlalchemy import text, select
 from sqlalchemy.orm import Session
 from database import get_session
-from models import SensorReading
+from models import Device, SensorReading
 
 app = FastAPI()
 
 class ReadingIn(BaseModel):
     device_id: int
-    temp_c: float
-    humidity_pct: float
-    pressure_hpa: float
+    temp_c: float = Field(ge=-18, le=100)
+    humidity_pct: float = Field(ge=0, le=100)
+    pressure_hpa: float = Field(ge=300, le=1100)
 
 class ReadingOut(BaseModel):
     reading_id: int
+    device_id: int
     temp_c: float
     humidity_pct: float
     pressure_hpa: float
@@ -28,6 +28,12 @@ class ReadingOut(BaseModel):
 
 @app.post("/readings/", status_code=201)
 def post_item(session: Annotated[Session, Depends(get_session)], readings: ReadingIn) -> ReadingOut:
+
+    device = session.get(Device, readings.device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail=f"Device with id {readings.device_id} not found")
+
+
     sensor_reading_row = SensorReading(**readings.model_dump())
     session.add(sensor_reading_row)
     session.commit()
