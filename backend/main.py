@@ -1,17 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from datetime import datetime
 from typing import Annotated
 from fastapi import Depends
-from sqlalchemy import text
+from sqlalchemy import text, select
 from sqlalchemy.orm import Session
 from database import get_session
 from models import SensorReading
 
 app = FastAPI()
 
-class PostedIn(BaseModel):
+class ReadingIn(BaseModel):
     device_id: int
     temp_c: float
     humidity_pct: float
@@ -27,7 +27,7 @@ class ReadingOut(BaseModel):
 
 
 @app.post("/readings/", status_code=201)
-def post_item(session: Annotated[Session, Depends(get_session)], readings: PostedIn) -> ReadingOut:
+def post_item(session: Annotated[Session, Depends(get_session)], readings: ReadingIn) -> ReadingOut:
     sensor_reading_row = SensorReading(**readings.model_dump())
     session.add(sensor_reading_row)
     session.commit()
@@ -35,11 +35,18 @@ def post_item(session: Annotated[Session, Depends(get_session)], readings: Poste
     return sensor_reading_row
 
 @app.get("/readings/")
-async def get_item() -> ReadingOut:
-    return ReadingOut(
-        reading_id=1, temp_c=22.5, humidity_pct=40,
-        pressure_hpa=975, recorded_at=datetime.now()
-    )
+def get_item(session: Annotated[Session, Depends(get_session)], limit: Annotated[int, Query(ge=1, le=1000)] = 100, 
+             device_id: int | None = None, since: datetime | None = None) -> list[ReadingOut]:
+
+    statement = select(SensorReading)
+    if device_id is not None:
+        statement = statement.where(SensorReading.device_id == device_id)
+    if since is not None:
+        statement = statement.where(SensorReading.recorded_at >= since)
+    statement = statement.order_by(SensorReading.recorded_at.desc()).limit(limit)
+
+    sensor_reading_rows = session.execute(statement).scalars().all()
+    return sensor_reading_rows
 
 @app.get("/dbcheck")
 def db_check(session: Annotated[Session, Depends(get_session)]):
