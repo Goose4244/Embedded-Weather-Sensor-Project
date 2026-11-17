@@ -5,30 +5,39 @@ import './App.css'
 
 function App() {
 
-  const [latestReading, setLatestReading] = useState<Reading | null>(null)
+  const [latestReadings, setLatestReadings] = useState<Reading[]>([])
+
   const loadLatestReading = async () => {
-    const apiResponse = await fetch('http://127.0.0.1:8000/readings/?limit=1')
+    const apiResponse = await fetch('http://127.0.0.1:8000/readings/?limit=10')
     const jsonApiResponse = await apiResponse.json()
     return jsonApiResponse
 
   }
 
+/*
   const parseJsonToReading = async () => {
     const jsonApiResponse = await loadLatestReading()
     const latestReading = jsonApiResponse[0] as Reading
     return latestReading
   }
+*/
 
-  const lastUpdatedTime = latestReading ? new Date(latestReading.recorded_at).toLocaleString() : null
-  const temp_f = latestReading ? ((latestReading.temp_c * 9/5) + 32).toFixed(1) : null
 
-  const refreshLatestReading = async () => {
-    const parsedJsonResponse = await parseJsonToReading()
-    setLatestReading(parsedJsonResponse)
+  
+  const temp_f = (temp_c: number) => {
+    return (temp_c * 9/5) + 32
+  }
+
+  const refreshLatestReadings = async () => {
+    const jsonApiResponse = await loadLatestReading()
+    setLatestReadings(jsonApiResponse)
   }
 
   useEffect(() => {
-    refreshLatestReading()
+    refreshLatestReadings()
+    const intervalID = setInterval(refreshLatestReadings, 5000)
+
+    return () => clearInterval(intervalID)
   }, [])
 
 
@@ -42,22 +51,41 @@ function App() {
         <button
           type="button"
           className="counter"
-          onClick={async () => {
-            const parsedJsonResponse = await parseJsonToReading()
-            setLatestReading(parsedJsonResponse)
-          }}
+          onClick={refreshLatestReadings}
         >
           Click to fetch latest reading from API
         </button>
         </div>
         <div>
-          <p>Reading ID: {latestReading ? latestReading.reading_id : "No reading fetched yet"}</p>
-          <p>Device ID: {latestReading ? latestReading.device_id : "No reading fetched yet"}</p>
-          <p>Temperature (°C): {latestReading ? latestReading.temp_c.toFixed(1) : "No reading fetched yet"}</p>
-          <p>Temperature (°F): {latestReading ? temp_f : "No reading fetched yet"}</p>
-          <p>Humidity (%): {latestReading ? latestReading.humidity_pct.toFixed(1) : "No reading fetched yet"}</p>
-          <p>Pressure (hPa): {latestReading ? latestReading.pressure_hpa.toFixed(1) : "No reading fetched yet"}</p>
-          <p>Latest Reading: {latestReading ? lastUpdatedTime : "No reading fetched yet"}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Reading ID</th>
+                <th>Device ID</th>
+                <th>Temperature (°C)</th>
+                <th>Temperature (°F)</th>
+                <th>Humidity (%)</th>
+                <th>Pressure (hPa)</th>
+                <th>Recorded At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestReadings.length === 0 ? (<tr><td colSpan={7}>No readings yet</td></tr>
+                ) : (latestReadings.map(reading => (
+                  <tr key={reading.reading_id}>
+                    <td>{reading.reading_id}</td>
+                    <td>{reading.device_id}</td>
+                    <td>{reading.temp_c}</td>
+                    <td>{temp_f(reading.temp_c)}</td>
+                    <td>{reading.humidity_pct}</td>
+                    <td>{reading.pressure_hpa}</td>
+                    <td>{new Date(reading.recorded_at).toLocaleString()}</td>
+                  </tr>)
+                  )
+                )
+              }
+            </tbody>
+          </table>
         </div>
       </section>
 

@@ -8,7 +8,7 @@
 #define GPIO_OUT (*(volatile uint32_t *)0x3F404004)
 
 #define WIFI_SSID "HMH_Guest"
-#define API_URL "http://10.80.122.204:8000/readings/"
+#define API_URL "http://10.80.122.74:8000/readings/"
 
 Adafruit_BME280 bme;
 
