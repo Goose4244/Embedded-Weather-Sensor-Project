@@ -2,22 +2,20 @@ import { useState } from 'react'
 import {useEffect} from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import type {Reading} from './types'
+import ReadingsTable from './components/ReadingsTable'
+import { toFahrenheit } from './utils'
 import './App.css'
+import './index.css'
 
 function App() {
 
   const [latestReadings, setLatestReadings] = useState<Reading[]>([])
 
   const loadLatestReading = async () => {
-    const apiResponse = await fetch('http://127.0.0.1:8000/readings/?limit=10')
+    const apiResponse = await fetch('http://127.0.0.1:8000/readings/?limit=50')
     const jsonApiResponse = await apiResponse.json()
     return jsonApiResponse
 
-  }
-
-  
-  const temp_f = (temp_c: number) => {
-    return (temp_c * 9/5) + 32
   }
 
   const refreshLatestReadings = async () => {
@@ -47,30 +45,30 @@ function App() {
   return (
     <>
       
-      <header>
+      <header className="header">
         <h1>Embedded Weather Sensor Dashboard</h1>
-        <p>Last updated: {new Date().toLocaleString()}</p>
+        <p className="live">Last updated: {new Date().toLocaleString()}</p>
       </header>
 
-      <main>
-        <section className="weatherHero">
+      <main className="page">
+        <section className="hero">
           {latestReading ?
 
           <>
           <div>
-            <p>{temp_f(latestReading.temp_c || 0)} °F</p>
-            <p>{latestReading.temp_c} °C</p>
+            <p className="temp_f">{toFahrenheit(latestReading.temp_c).toFixed(1)} °F</p>
+            <p className="temp_c">{latestReading.temp_c.toFixed(1)} °C</p>
           </div>
 
-          <dl>
+          <dl className="stats">
             <div>
               <dt>Humidity</dt>
-              <dd>{latestReading.humidity_pct}%</dd>
+              <dd>{latestReading.humidity_pct.toFixed(1)}%</dd>
             </div>
 
             <div>
               <dt>Pressure</dt>
-              <dd>{latestReading.pressure_hpa} hPa</dd>
+              <dd>{latestReading.pressure_hpa.toFixed(1)} hPa</dd>
             </div>
 
             <div>
@@ -84,8 +82,19 @@ function App() {
 
         </section>
 
-        <section className="card weatherChart">
-          <div style={{ height: 300 }}>
+        <section className="card chart">
+          <div className="top">
+            <div>
+              <h2>{chartLabels[chartDataKey].name} Chart</h2>
+            </div>
+            <div className="range">
+              <button type="button" onClick={() => setChartDataKey("temp_c")} aria-pressed={chartDataKey === 'temp_c'}>Temperature</button>
+              <button type="button" onClick={() => setChartDataKey("humidity_pct")} aria-pressed={chartDataKey === 'humidity_pct'}>Humidity</button>
+              <button type="button" onClick={() => setChartDataKey("pressure_hpa")} aria-pressed={chartDataKey === 'pressure_hpa'}>Pressure</button>
+            </div>
+          </div>
+
+          <div className="chartBox">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={oldToNewReadings}>
                 <CartesianGrid strokeDasharray="1 1"/>
@@ -96,46 +105,9 @@ function App() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div>
-            <button type="button" onClick={() => setChartDataKey("temp_c")}>Temperature</button>
-            <button type="button" onClick={() => setChartDataKey("humidity_pct")}>Humidity</button>
-            <button type="button" onClick={() => setChartDataKey("pressure_hpa")}>Pressure</button>
-          </div>
         </section>
 
-        <section className="card weatherTable">
-          <div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Reading ID</th>
-                  <th>Device ID</th>
-                  <th>Temperature (°C)</th>
-                  <th>Temperature (°F)</th>
-                  <th>Humidity (%)</th>
-                  <th>Pressure (hPa)</th>
-                  <th>Recorded At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestReadings.length === 0 ? (<tr><td colSpan={7}>No readings yet</td></tr>
-                  ) : (latestReadings.map(reading => (
-                    <tr key={reading.reading_id}>
-                      <td>{reading.reading_id}</td>
-                      <td>{reading.device_id}</td>
-                      <td>{reading.temp_c}</td>
-                      <td>{temp_f(reading.temp_c)}</td>
-                      <td>{reading.humidity_pct}</td>
-                      <td>{reading.pressure_hpa}</td>
-                      <td>{new Date(reading.recorded_at).toLocaleString()}</td>
-                    </tr>)
-                    )
-                  )
-                }
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <ReadingsTable readings={latestReadings}/>
       </main>
 
       <footer>
